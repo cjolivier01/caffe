@@ -1,7 +1,7 @@
-if(NOT HAVE_PYTHON)
-  message(STATUS "Python interface is disabled or not all required dependencies found. Building without it...")
-  return()
-endif()
+#if(NOT HAVE_PYTHON)
+#  message(STATUS "Python interface is disabled or not all required dependencies found. Building without it...")
+#  return()
+#endif()
 
 file(GLOB_RECURSE python_srcs ${PROJECT_SOURCE_DIR}/python/*.cpp)
 
