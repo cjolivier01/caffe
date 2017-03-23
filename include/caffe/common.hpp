@@ -18,6 +18,12 @@
 
 #include "caffe/util/device_alternate.hpp"
 
+// Assist CLion to parse Cuda files (*.cu)
+#ifdef __JETBRAINS_IDE__
+  #define __host__
+  #define __device__
+#endif
+
 // Convert macro to string
 #define STRINGIFY(m) #m
 #define AS_STRING(m) STRINGIFY(m)
