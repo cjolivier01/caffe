@@ -12,17 +12,27 @@
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
 
-#define BATCH_SIZE 2
-#define INPUT_DATA_SIZE 3
+//#define BATCH_SIZE 2
+//#define INPUT_DATA_SIZE 3
 
 namespace caffe {
+
+//static constexpr int BATCH_SIZE = 5;
+//static constexpr int CHANNELS = 4;
+//static constexpr int DX = 5;
+//static constexpr int DY = 7;
+
+static constexpr int BATCH_SIZE = 1;
+static constexpr int CHANNELS = 1;
+static constexpr int DX = 3;
+static constexpr int DY = 4;
 
   template <typename TypeParam>
   class BatchNormLayerTest : public MultiDeviceTest<TypeParam> {
     typedef typename TypeParam::Dtype Dtype;
    protected:
     BatchNormLayerTest()
-        : blob_bottom_(new Blob<Dtype>(5, 2, 3, 4)),
+        : blob_bottom_(new Blob<Dtype>(BATCH_SIZE, CHANNELS, DX, DY)),
           blob_top_(new Blob<Dtype>()) {
       // fill the values
       FillerParameter filler_param;
@@ -38,6 +48,26 @@ namespace caffe {
     vector<Blob<Dtype>*> blob_top_vec_;
   };
 
+  template<typename Dtype>
+  inline void patternFill(Blob<Dtype> *blob) {
+    const int num = blob->num(); // batch size
+    const int channels = blob->channels();
+    const int height = blob->height();
+    const int width = blob->width();
+    Dtype val = 0.010;
+    for (int j = 0; j < channels; ++j) {
+      Dtype sum = 0, var = 0;
+      for (int i = 0; i < num; ++i) {
+        for (int k = 0; k < height; ++k) {
+          for (int l = 0; l < width; ++l) {
+            blob->mutable_cpu_data()[blob->offset(i, j, k, l)] = val;
+            val += 0.01;
+          }
+        }
+      }
+    }
+  }
+
   TYPED_TEST_CASE(BatchNormLayerTest, TestDtypesAndDevices);
 
   TYPED_TEST(BatchNormLayerTest, TestForward) {
@@ -48,8 +78,10 @@ namespace caffe {
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
 
+    patternFill(this->blob_bottom_);
+
     // Test mean
-    int num = this->blob_bottom_->num();
+    int num = this->blob_bottom_->num(); // batch size
     int channels = this->blob_bottom_->channels();
     int height = this->blob_bottom_->height();
     int width = this->blob_bottom_->width();

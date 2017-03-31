@@ -44,7 +44,7 @@ if(UNIX OR APPLE)
 endif()
 
 # ---[ Set debug postfix
-set(Caffe_DEBUG_POSTFIX "-d")
+set(Caffe_DEBUG_POSTFIX "")
 
 set(Caffe_POSTFIX "")
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
