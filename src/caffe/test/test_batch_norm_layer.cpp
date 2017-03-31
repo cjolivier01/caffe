@@ -22,10 +22,10 @@ namespace caffe {
 //static constexpr int DX = 5;
 //static constexpr int DY = 7;
 
-static constexpr int BATCH_SIZE = 1;
+static constexpr int BATCH_SIZE = 2;
 static constexpr int CHANNELS = 1;
-static constexpr int DX = 3;
-static constexpr int DY = 4;
+static constexpr int DX = 2;
+static constexpr int DY = 2;
 
   template <typename TypeParam>
   class BatchNormLayerTest : public MultiDeviceTest<TypeParam> {
@@ -54,14 +54,13 @@ static constexpr int DY = 4;
     const int channels = blob->channels();
     const int height = blob->height();
     const int width = blob->width();
-    Dtype val = 0.010;
-    for (int j = 0; j < channels; ++j) {
-      Dtype sum = 0, var = 0;
-      for (int i = 0; i < num; ++i) {
+    Dtype val = 1.0;
+    for (int i = 0; i < num; ++i) {
+      for (int j = 0; j < channels; ++j) {
         for (int k = 0; k < height; ++k) {
           for (int l = 0; l < width; ++l) {
             blob->mutable_cpu_data()[blob->offset(i, j, k, l)] = val;
-            val += 0.01;
+            val += 1.0;
           }
         }
       }
@@ -74,11 +73,13 @@ static constexpr int DY = 4;
     typedef typename TypeParam::Dtype Dtype;
     LayerParameter layer_param;
 
+    patternFill(this->blob_bottom_);
+
+    //std::cout << "Start matrix: " << *this->blob_bottom_;
+
     BatchNormLayer<Dtype> layer(layer_param);
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-
-    patternFill(this->blob_bottom_);
 
     // Test mean
     int num = this->blob_bottom_->num(); // batch size

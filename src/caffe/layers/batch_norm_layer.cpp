@@ -7,40 +7,6 @@
 
 namespace caffe {
 
-template <typename StreamType, typename Dtype>
-inline void mPrint(StreamType& os, const Blob<Dtype>& blob) {
-  const Dtype *d      = blob.cpu_data();
-  const int batchSize = blob.num();
-  const int channels  = blob.channels();
-  const int width     = blob.width();
-  const int height    = blob.num_axes() > 1 ? blob.height() : 1;
-
-  const int thisBatch = 0;
-
-  os << std::endl;
-  for(int r = 0; r < height; ++r) {
-    for(int thisChannel = 0; thisChannel < channels; ++thisChannel) {
-      for (int c = 0; c < width; ++c) {
-        //const float val = *(d + (r * width) + c);
-        const Dtype val = blob.data_at(thisBatch, thisChannel, r, c);
-        if (c) {
-          os << ", ";
-        } else {
-          os << "[ ";
-        }
-        os << std::fixed << std::setw(7) << std::setprecision(3) << std::right << val;
-      }
-      os << " ]\t";
-    }
-    os << std::endl;
-  }
-  os << std::endl << std::flush;
-}
-template <typename StreamType, typename Dtype>
-inline StreamType& operator << (StreamType& os, const Blob<Dtype>& blob) {
-  mPrint(os, blob);
-};
-
 template <typename Dtype>
 void BatchNormLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
@@ -111,7 +77,7 @@ void BatchNormLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     std::cout << "spatial_sum_multiplier_:" << spatial_sum_multiplier_;
   }
 
-  const int numbychans = channels_*bottom[0]->shape(0);
+  const int numbychans = channels_ * bottom[0]->shape(0); // channels * batch size
   if (num_by_chans_.num_axes() == 0 || num_by_chans_.shape(0) != numbychans) {
     sz[0] = numbychans;
     num_by_chans_.Reshape(sz);
@@ -155,16 +121,18 @@ void caffe_cpu_gemv(const CBLAS_TRANSPOSE TransA, const int M, const int N,
     std::cout << "spatial_sum_multiplier_:" << spatial_sum_multiplier_;
     caffe_cpu_gemv<Dtype>( // product (multiple) M and V
       CblasNoTrans,  // transpose?
-      channels_ * num,  // rows in matrix M
-      spatial_dim, // columns in matrix M
+      channels_ * num,  // rows in matrix M - TOTAL CHANNELS IN BATCH
+      spatial_dim, // columns in matrix M - ITEMS PER MARTIX
       1. / (num * spatial_dim), // alpha, scaling factor for product of matrix A and vector V
+                                // ALSO DIVIDE BY NUM BATCHES BECAUSE REQUESTED INFLUENCE IS PER ITEM, BUT VALUES CALCULATED ACROSS THE WHOLE BATCH
+                                // num * spatial_dim IS TOTAL NUMBER OF MATRIX NUMBERS IN THE ENTIRE BATCH NOT COUNTING CHANNELS
       bottom_data, // Matrix M data  - LAYER INPUT
       spatial_sum_multiplier_.cpu_data(), // Vector V
       0., // beta -- scaling factor for vector Y
       num_by_chans_.mutable_cpu_data() // Vector Y - RESULT
     );
     std::cout << "num_by_chans_:" << num_by_chans_;
-    std::cout << "batch_sum_multiplier_:" << num_by_chans_;
+    std::cout << "batch_sum_multiplier_:" << batch_sum_multiplier_;
     caffe_cpu_gemv<Dtype>(
       CblasTrans, // transpose?
       num, // rows in matrix MM
@@ -179,12 +147,20 @@ void caffe_cpu_gemv(const CBLAS_TRANSPOSE TransA, const int M, const int N,
   }
 
   // subtract mean
-  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num, channels_, 1, 1,
+  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
+                        num,
+                        channels_,
+                        1, 1,
       batch_sum_multiplier_.cpu_data(), mean_.cpu_data(), 0.,
       num_by_chans_.mutable_cpu_data());
+
+  std::cout << "num_by_chans_:" << num_by_chans_;
+
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, channels_ * num,
       spatial_dim, 1, -1, num_by_chans_.cpu_data(),
       spatial_sum_multiplier_.cpu_data(), 1., top_data);
+
+  std::cout << "spatial_sum_multiplier_:" << spatial_sum_multiplier_;
 
   if (!use_global_stats_) {
     // compute variance using var(X) = E((X-EX)^2)

@@ -2,6 +2,7 @@
 #define CAFFE_BATCHNORM_LAYER_HPP_
 
 #include <vector>
+#include <iomanip>
 
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
@@ -72,6 +73,62 @@ class BatchNormLayer : public Layer<Dtype> {
   Blob<Dtype> num_by_chans_;
   Blob<Dtype> spatial_sum_multiplier_;
 };
+
+template <typename StreamType, typename Dtype>
+inline void mPrint(StreamType& os, const Blob<Dtype>& blob, bool doChannels = true, bool doBatches = true) {
+  const int batchSize = blob.num();
+  const int channels  = blob.channels();
+  const int width     = blob.width();
+  const int height    = blob.num_axes() > 1 ? blob.height() : 1;
+  if(blob.num_axes() == 1) {
+    os << " [ ";
+    for(int x = 0; x < batchSize; ++x) {
+      const Dtype val = blob.data_at(x, 0, 0, 0);
+      if (x) {
+        os << ", ";
+      }
+      os << std::fixed << std::setw(7) << std::setprecision(3) << std::right << val;
+    }
+    os << " ]";
+  } else {
+    os << std::endl;
+    for (int r = 0; r < height; ++r) {
+      for (int thisBatch = 0; thisBatch < batchSize; ++thisBatch) {
+        if (!thisBatch) {
+          os << "|  ";
+        }
+        for (int thisChannel = 0; thisChannel < channels; ++thisChannel) {
+          for (int c = 0; c < width; ++c) {
+            //const float val = *(d + (r * width) + c);
+            const Dtype val = blob.data_at(thisBatch, thisChannel, r, c);
+            if (c) {
+              os << ", ";
+            } else {
+              os << "[ ";
+            }
+            os << std::fixed << std::setw(7) << std::setprecision(3) << std::right << val;
+          }
+          os << " ]  ";
+          if (!doChannels) {
+            break;
+          }
+        }
+        os << "|  ";
+        if (!doBatches) {
+          break;
+        }
+      }
+      os << std::endl;
+    }
+  }
+  os << std::endl << std::flush;
+}
+template <typename StreamType, typename Dtype>
+inline StreamType& operator << (StreamType& os, const Blob<Dtype>& blob) {
+  mPrint(os, blob);
+  return os;
+};
+
 
 }  // namespace caffe
 
